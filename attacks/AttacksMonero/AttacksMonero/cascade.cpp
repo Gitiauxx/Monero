@@ -1,7 +1,4 @@
 #include <iostream>
-
-
-#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -80,12 +77,30 @@ void number_transaction(std::istream& file, std::string filename) {
 		}
 		else
 		{
-			file_out << tx << ";" << count << std::endl;
+			file_out << tx << "," << count << std::endl;
 			tx = input[4];
 			count = 1;
 		}
 	}
 	file_out.close();
+}
+
+void count_line(std::istream& file, std::string filename) {
+	// each row is a input represented by a key in position 2 
+	CSVKey input;
+	std::string tx = "0";
+	int count = 0;
+	std::string line;
+	std::vector<std::string> v;
+
+	// go down one row to remove header
+	
+	while (std::getline(file, line, ','))
+	{
+		count += 1;
+	}
+
+	std::cout << count << std::endl;
 }
 
 
@@ -98,45 +113,74 @@ void zero_mixin(std::istream& file, std::istream& transactions) {
 	std::string key_identified;
 	int count = 0;
 	int number_tx = 0;
-	int counter_tx = 1;
+	int counter_inputs = 1;
 	
 	// go down one row to remove header
 	file >> input;
 
 	while (transactions >> tran) {
 		number_tx = std::stoi(tran[1]);
-		while (file >> input)
+		
+		while (counter_inputs <= number_tx)
 		{
-			while (counter_tx <= number_tx)
+			file >> input;
+			counter_inputs += 1;
+			
+			// temporarily save all keys in this transaction
+			// and count the ones already matched
+			key = input[3];
+			while ((matched.find(key) == matched.end()) & (count < 1))
 			{
-				// temporarily save all keys in this transaction
-				// and count the ones already matched
-				key = input[2];
-				while ((matched.find(key) == matched.end()) & (count < 1))
-				{
-					count += 1;
-					key_identified = key;
-				}
+				count += 1;
+				key_identified = key;
 			}
-			// within a transaction look for key already match
-			counter_tx = 1;
-			if (count == 1) {
-					matched[key_identified] = 1;
-				}
-			count = 0;
 		}
+		
+		// within a transaction look for key already match
+			
+		if (count == 1) 
+		{
+			matched[key_identified] = 1;
+		}
+		
+		// reset counter_transaction and real-spent count
+		counter_inputs = 1;
+		count = 0;
+		
 	}
 }
 int main()
 {
-	std::ifstream  file("C:\\Users\\MX\\Documents\\Xavier\\Monero\\data\\data_monero_1400K.csv");
-	std::string filename = "C:\\Users\\MX\\Documents\\Xavier\\Monero\\data\\transactions.csv";
+	std::ifstream  file("C:\\Users\\Xavier\\monero\\data\\test_monero_data_mp300_500.csv");
+	std::ifstream transaction("C:\\Users\\Xavier\\monero\\data\\transactions.csv");
 	int real_spent_count = 0;
 	int total = 0;
+	int new_match = 1;
+	int t = 1;
+	int count = 0;
+	std::ios::sync_with_stdio(false);
+	std::string line;
+	std::vector<std::string> v;
 
-	number_transaction(file, filename);
-	std::cout << total << '\n';
-	std::cout << matched.size() << '\n';
+	//count_line(file, "out");
 
+	while (std::getline(file, line))
+	{
+		v.push_back(line);
+	}
+
+	std::cout << v.size() << '\n';
+
+	//while (matched.size() > real_spent_count)
+	//{
+		//zero_mixin(file, transaction);
+		//new_match = matched.size();
+		//std::cout << "At iteration " << t << std::endl;
+		//std::cout  << "the total inputs is : " << total << std::endl;
+		//std::cout << "the total de-anonimized is : " << new_match << std::endl;
+		
+		//real_spent_count = new_match;
+		//t += 1;
+	//}
 	return 0;
 }
