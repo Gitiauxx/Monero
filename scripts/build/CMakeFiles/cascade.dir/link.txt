@@ -1,0 +1,3 @@
+"C:\Program Files\CMake\bin\cmake.exe" -E remove -f CMakeFiles\cascade.dir/objects.a
+C:\MinGW\bin\ar.exe cr CMakeFiles\cascade.dir/objects.a @CMakeFiles\cascade.dir\objects1.rsp
+C:\MinGW\bin\g++.exe -std=c++0x -o3 -O3 -DNDEBUG   -Wl,--whole-archive CMakeFiles\cascade.dir/objects.a -Wl,--no-whole-archive  -o cascade.exe -Wl,--out-implib,libcascade.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\cascade.dir\linklibs.rsp
