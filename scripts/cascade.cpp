@@ -17,7 +17,10 @@ struct Input {
 std::unordered_map<std::string, int> matched;
 
 // number of inputs
-int total_inputs = 0;
+int TOTAL_INPUTS = 0;
+
+// data folder
+std::string DATA = "C:\\Users\\Xavier\\monero\\data\\inputs\\monero_inputs";
 
 
 void readCount(std::string const& pathname)
@@ -74,7 +77,7 @@ void readCount(std::string const& pathname)
         
     }
 
-	total_inputs += data.size();
+	TOTAL_INPUTS += data.size();
 
     // number of keys per transaction
 	std::vector<int> transactions;
@@ -149,7 +152,7 @@ void cascade()
 {
 	for (int i = 0; i <= 28; i++) {
 
-		std::string inFile = "C:\\Users\\Xavier\\monero\\data\\inputs\\monero_inputs";
+		std::string inFile = DATA;
 		
 		// Add the number to the filename
         inFile.append(std::to_string(i));
@@ -167,7 +170,6 @@ int main()
 {
     auto start = std::chrono::high_resolution_clock::now();
 	int number_identified = 0;
-	int total_inputs;
 	int number_pass = 1;
 	
 
@@ -178,12 +180,13 @@ int main()
 	
 		// run attack on that file and save real spent in the hash table
 		cascade();
-		std::cout << matched.size() << std::endl;
-		std::cout << "After" << number_pass << "pass, the fraction of real spent identified is " << 
-					matched.size() / total_inputs << std::endl;
+
+		std::cout << "After " << number_pass << "pass, the number of real spent identified is " << 
+					matched.size() <<  std::endl;
+        std::cout << "And the number of inputs is " << TOTAL_INPUTS << std::endl;
 		
 		//reset total inputs to zero
-		total_inputs = 0;
+		TOTAL_INPUTS = 0;
 		number_pass += 1;
 	}
 	
