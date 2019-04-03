@@ -50,6 +50,12 @@ Boost_SYSTEM_LIBRARY_DEBUG:FILEPATH=C:/MinGW/lib/libboost_system.a
 //Boost system library (release)
 Boost_SYSTEM_LIBRARY_RELEASE:FILEPATH=C:/MinGW/lib/libboost_system.a
 
+//Boost variant library (debug)
+Boost_VARIANT_LIBRARY_DEBUG:FILEPATH=Boost_VARIANT_LIBRARY_DEBUG-NOTFOUND
+
+//Boost variant library (release)
+Boost_VARIANT_LIBRARY_RELEASE:FILEPATH=Boost_VARIANT_LIBRARY_RELEASE-NOTFOUND
+
 //Path to a program.
 CMAKE_AR:FILEPATH=C:/MinGW/bin/ar.exe
 
@@ -298,6 +304,10 @@ Boost_REGEX_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
 Boost_SYSTEM_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: Boost_SYSTEM_LIBRARY_RELEASE
 Boost_SYSTEM_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_VARIANT_LIBRARY_DEBUG
+Boost_VARIANT_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_VARIANT_LIBRARY_RELEASE
+Boost_VARIANT_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_AR
 CMAKE_AR-ADVANCED:INTERNAL=1
 //This is the directory where this CMakeCache.txt was created
@@ -451,7 +461,7 @@ CMAKE_STRIP-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
 //Components requested for this build tree.
-_Boost_COMPONENTS_SEARCHED:INTERNAL=filesystem;iostreams;regex;system
+_Boost_COMPONENTS_SEARCHED:INTERNAL=filesystem;iostreams;regex;system;variant
 //Last used Boost_INCLUDE_DIR value.
 _Boost_INCLUDE_DIR_LAST:INTERNAL=C:/MinGW/include
 //Last used Boost_LIBRARY_DIR_DEBUG value.

@@ -122,6 +122,19 @@ cascade/fast:
 	$(MAKE) -f CMakeFiles\cascade.dir\build.make CMakeFiles/cascade.dir/build
 .PHONY : cascade/fast
 
+#=============================================================================
+# Target rules for targets named graph
+
+# Build rule for target.
+graph: cmake_check_build_system
+	$(MAKE) -f CMakeFiles\Makefile2 graph
+.PHONY : graph
+
+# fast build rule for target.
+graph/fast:
+	$(MAKE) -f CMakeFiles\graph.dir\build.make CMakeFiles/graph.dir/build
+.PHONY : graph/fast
+
 cascade.obj: cascade.cpp.obj
 
 .PHONY : cascade.obj
@@ -149,6 +162,33 @@ cascade.cpp.s:
 	$(MAKE) -f CMakeFiles\cascade.dir\build.make CMakeFiles/cascade.dir/cascade.cpp.s
 .PHONY : cascade.cpp.s
 
+graph.obj: graph.cpp.obj
+
+.PHONY : graph.obj
+
+# target to build an object file
+graph.cpp.obj:
+	$(MAKE) -f CMakeFiles\graph.dir\build.make CMakeFiles/graph.dir/graph.cpp.obj
+.PHONY : graph.cpp.obj
+
+graph.i: graph.cpp.i
+
+.PHONY : graph.i
+
+# target to preprocess a source file
+graph.cpp.i:
+	$(MAKE) -f CMakeFiles\graph.dir\build.make CMakeFiles/graph.dir/graph.cpp.i
+.PHONY : graph.cpp.i
+
+graph.s: graph.cpp.s
+
+.PHONY : graph.s
+
+# target to generate assembly for a file
+graph.cpp.s:
+	$(MAKE) -f CMakeFiles\graph.dir\build.make CMakeFiles/graph.dir/graph.cpp.s
+.PHONY : graph.cpp.s
+
 # Help Target
 help:
 	@echo The following are some of the valid targets for this Makefile:
@@ -157,10 +197,14 @@ help:
 	@echo ... depend
 	@echo ... rebuild_cache
 	@echo ... cascade
+	@echo ... graph
 	@echo ... edit_cache
 	@echo ... cascade.obj
 	@echo ... cascade.i
 	@echo ... cascade.s
+	@echo ... graph.obj
+	@echo ... graph.i
+	@echo ... graph.s
 .PHONY : help
 
 

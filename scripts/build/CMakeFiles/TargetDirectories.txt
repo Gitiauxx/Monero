@@ -1,3 +1,4 @@
 C:/Users/Xavier/monero/scripts/build/CMakeFiles/rebuild_cache.dir
 C:/Users/Xavier/monero/scripts/build/CMakeFiles/cascade.dir
+C:/Users/Xavier/monero/scripts/build/CMakeFiles/graph.dir
 C:/Users/Xavier/monero/scripts/build/CMakeFiles/edit_cache.dir
