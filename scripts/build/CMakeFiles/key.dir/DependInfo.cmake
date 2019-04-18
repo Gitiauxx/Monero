@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "C:/Users/Xavier/monero/scripts/test_boost.cpp" "C:/Users/Xavier/monero/scripts/build/CMakeFiles/memory-map.dir/test_boost.cpp.obj"
+  "C:/Users/Xavier/monero/scripts/keys.cpp" "C:/Users/Xavier/monero/scripts/build/CMakeFiles/key.dir/keys.cpp.obj"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 

@@ -110,6 +110,19 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named keys
+
+# Build rule for target.
+keys: cmake_check_build_system
+	$(MAKE) -f CMakeFiles\Makefile2 keys
+.PHONY : keys
+
+# fast build rule for target.
+keys/fast:
+	$(MAKE) -f CMakeFiles\keys.dir\build.make CMakeFiles/keys.dir/build
+.PHONY : keys/fast
+
+#=============================================================================
 # Target rules for targets named cascade
 
 # Build rule for target.
@@ -121,6 +134,19 @@ cascade: cmake_check_build_system
 cascade/fast:
 	$(MAKE) -f CMakeFiles\cascade.dir\build.make CMakeFiles/cascade.dir/build
 .PHONY : cascade/fast
+
+#=============================================================================
+# Target rules for targets named reduce
+
+# Build rule for target.
+reduce: cmake_check_build_system
+	$(MAKE) -f CMakeFiles\Makefile2 reduce
+.PHONY : reduce
+
+# fast build rule for target.
+reduce/fast:
+	$(MAKE) -f CMakeFiles\reduce.dir\build.make CMakeFiles/reduce.dir/build
+.PHONY : reduce/fast
 
 #=============================================================================
 # Target rules for targets named graph
@@ -189,6 +215,60 @@ graph.cpp.s:
 	$(MAKE) -f CMakeFiles\graph.dir\build.make CMakeFiles/graph.dir/graph.cpp.s
 .PHONY : graph.cpp.s
 
+keys.obj: keys.cpp.obj
+
+.PHONY : keys.obj
+
+# target to build an object file
+keys.cpp.obj:
+	$(MAKE) -f CMakeFiles\keys.dir\build.make CMakeFiles/keys.dir/keys.cpp.obj
+.PHONY : keys.cpp.obj
+
+keys.i: keys.cpp.i
+
+.PHONY : keys.i
+
+# target to preprocess a source file
+keys.cpp.i:
+	$(MAKE) -f CMakeFiles\keys.dir\build.make CMakeFiles/keys.dir/keys.cpp.i
+.PHONY : keys.cpp.i
+
+keys.s: keys.cpp.s
+
+.PHONY : keys.s
+
+# target to generate assembly for a file
+keys.cpp.s:
+	$(MAKE) -f CMakeFiles\keys.dir\build.make CMakeFiles/keys.dir/keys.cpp.s
+.PHONY : keys.cpp.s
+
+reduce.obj: reduce.cpp.obj
+
+.PHONY : reduce.obj
+
+# target to build an object file
+reduce.cpp.obj:
+	$(MAKE) -f CMakeFiles\reduce.dir\build.make CMakeFiles/reduce.dir/reduce.cpp.obj
+.PHONY : reduce.cpp.obj
+
+reduce.i: reduce.cpp.i
+
+.PHONY : reduce.i
+
+# target to preprocess a source file
+reduce.cpp.i:
+	$(MAKE) -f CMakeFiles\reduce.dir\build.make CMakeFiles/reduce.dir/reduce.cpp.i
+.PHONY : reduce.cpp.i
+
+reduce.s: reduce.cpp.s
+
+.PHONY : reduce.s
+
+# target to generate assembly for a file
+reduce.cpp.s:
+	$(MAKE) -f CMakeFiles\reduce.dir\build.make CMakeFiles/reduce.dir/reduce.cpp.s
+.PHONY : reduce.cpp.s
+
 # Help Target
 help:
 	@echo The following are some of the valid targets for this Makefile:
@@ -196,7 +276,9 @@ help:
 	@echo ... clean
 	@echo ... depend
 	@echo ... rebuild_cache
+	@echo ... keys
 	@echo ... cascade
+	@echo ... reduce
 	@echo ... graph
 	@echo ... edit_cache
 	@echo ... cascade.obj
@@ -205,6 +287,12 @@ help:
 	@echo ... graph.obj
 	@echo ... graph.i
 	@echo ... graph.s
+	@echo ... keys.obj
+	@echo ... keys.i
+	@echo ... keys.s
+	@echo ... reduce.obj
+	@echo ... reduce.i
+	@echo ... reduce.s
 .PHONY : help
 
 

@@ -1,7 +1,7 @@
 #include <boost/iostreams/device/mapped_file.hpp>
-//#include <boost/filesystem.hpp>
-//#include <boost/thread/thread.hpp>
-//#include <boost/lockfree/queue.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/lockfree/queue.hpp>
 #include<vector>
 #include<chrono>
 #include<iostream>
@@ -17,10 +17,7 @@ struct Input {
 std::unordered_map<std::string, int> matched;
 
 // number of inputs
-int TOTAL_INPUTS = 0;
-
-// data folder
-std::string DATA = "C:\\Users\\Xavier\\monero\\data\\inputs\\monero_inputs";
+total_inputs = 0;
 
 
 void readCount(std::string const& pathname)
@@ -77,7 +74,7 @@ void readCount(std::string const& pathname)
         
     }
 
-	TOTAL_INPUTS += data.size();
+	total_inputs += data.size();
 
     // number of keys per transaction
 	std::vector<int> transactions;
@@ -150,9 +147,9 @@ void readCount(std::string const& pathname)
 
 void cascade()
 {
-	for (int i = 0; i <= 38; i++) {
+	for (int i = 0; i <= 28; i++) {
 
-		std::string inFile = DATA;
+		std::string inFile = "C:\\Users\\Xavier\\monero\\data\\inputs\\monero_inputs";
 		
 		// Add the number to the filename
         inFile.append(std::to_string(i));
@@ -170,6 +167,7 @@ int main()
 {
     auto start = std::chrono::high_resolution_clock::now();
 	int number_identified = 0;
+	int total_inputs;
 	int number_pass = 1;
 	
 
@@ -180,13 +178,12 @@ int main()
 	
 		// run attack on that file and save real spent in the hash table
 		cascade();
-
-		std::cout << "After " << number_pass << "pass, the number of real spent identified is " << 
-					matched.size() <<  std::endl;
-        std::cout << "And the number of inputs is " << TOTAL_INPUTS << std::endl;
+		std::cout << matched.size() << std::endl;
+		std::cout << "After" << number_pass << "pass, the fraction of real spent identified is " << 
+					matched.size() / total_inputs << std::endl;
 		
 		//reset total inputs to zero
-		TOTAL_INPUTS = 0;
+		total_inputs = 0;
 		number_pass += 1;
 	}
 	
