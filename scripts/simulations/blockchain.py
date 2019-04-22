@@ -1,19 +1,22 @@
 import random
+import numpy as np
 
 BLOCKSIZE = 10
-INITIAL_SIZE = 1000
+INITIAL_SIZE = 100000
 
 blockid = 0
 kid = 0
+time = 0
 
 class transaction(object):
 
-    def __init__(self, ring):
+    def __init__(self, ring, time):
         self.ring = ring
         self.id = kid
         self.blockid = blockid
         self.size = len(ring)
         self.spent = False
+        self.time = time
 
 class Keys(object):
 
@@ -69,27 +72,44 @@ class Spent(object):
 
 class blockChain(object):
 
-    def __init__(self, blocksize, ringsize):
-        self.blocksize = blocksize
+    def __init__(self, blocksize, ringsize, time_table):
+        self.tx_block_table = blocksize
+        self.blocksize = self.update_blockside()
         self.blockfilled = 0
-        self.ringsize = ringsize
+        self.ringsize_table = ringsize
+        self.time_table = time_table
 
         # start the chain with coins wo inputs
         self.keys = Keys()
         self.keyspent = Spent()
+        print("Warming up the chain....")
         for i in range(INITIAL_SIZE):
             self.inception()
+
+    def update_blockside(self):
+        return np.random.choice(self.tx_block_table[:, 0], 1, 
+                                p=self.tx_block_table[:, 1])[0]
+    
+    def update_ringsize(self):
+        return np.random.choice(self.ringsize_table[:, 0], 1, 
+                                p=self.ringsize_table[:, 1])[0]
+
+    def update_time(self):
+        global time
+        time += np.random.choice(self.time_table[:, 0], 1, 
+                                p=self.time_table[:, 1])[0]
 
     def inception(self):
         
         # coins without inputs 
-        tx = transaction([])
+        tx = transaction([], time)
         self.keys.insert(tx)
         self.keyspent.insert(tx)
         
         global kid
         kid += 1
         self.update_blockid() 
+        self.update_time()
 
     def update_blockid(self):
         self.blockfilled += 1
@@ -98,14 +118,16 @@ class blockChain(object):
             global blockid 
             blockid += 1
             self.blockfilled = 0
+            self.blockside = self.update_blockside()
 
     def add_transaction(self):
+        ringsize = self.update_ringsize()
         ring = self.keys.pick_n(ringsize)
         coin = self.keyspent.pick() # real spent
         coin.spent = True
         ring.append(coin)
         
-        tx = transaction(ring)
+        tx = transaction(ring, time)
 
         # add new transaction as key to the pool of keys
         self.keys.insert(tx)
@@ -117,14 +139,18 @@ class blockChain(object):
         global kid
         kid += 1
         self.update_blockid()
-
+        self.update_time()
+        
 if __name__ == "__main__":
 
-    ringsize = 10
-    blocksize = 100
-    bkc = blockChain(blocksize, ringsize)
+    ringsize = np.load("inputs/ringsize.npy")
+    blocksize = np.load("inputs/transaction_per_block.npy")
+    time_table = np.load("inputs/inter_time.npy")
+    
+    bkc = blockChain(blocksize, ringsize, time_table)
 
-    while kid < 10000:
+    print("Starting simulations")
+    while kid < 50000:
         bkc.add_transaction()
        
 
