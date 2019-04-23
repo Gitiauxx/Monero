@@ -2,7 +2,7 @@ import random
 import numpy as np
 
 BLOCKSIZE = 10
-INITIAL_SIZE = 100000
+INITIAL_SIZE = 10000
 
 blockid = 0
 kid = 0
@@ -11,12 +11,14 @@ time = 0
 class transaction(object):
 
     def __init__(self, ring, time):
+        self.time = time
         self.ring = ring
         self.id = kid
         self.blockid = blockid
         self.size = len(ring)
         self.spent = False
-        self.time = time
+        self.attacker = False
+        
 
 class Keys(object):
 
@@ -32,7 +34,7 @@ class Keys(object):
             return False
 
     def pick(self):
-        # for now uniform draw with replacement
+        # for now uniform draw
         return random.choice(self.keys) 
 
     def pick_n(self, n):
@@ -41,10 +43,9 @@ class Keys(object):
         picked = []
         while (count < n):
             x = self.pick()
-            if x not in picked:
-                picked.append(x)
-                count += 1
-        
+            #if x not in picked:
+            picked.append(x)
+            count += 1
         return picked
 
 class Spent(object):
@@ -72,19 +73,19 @@ class Spent(object):
 
 class blockChain(object):
 
-    def __init__(self, blocksize, ringsize, time_table):
-        self.tx_block_table = blocksize
+    def __init__(self, assumptions):
+ 
+        self.tx_block_table = assumptions['transaction_per_block']
         self.blocksize = self.update_blockside()
         self.blockfilled = 0
-        self.ringsize_table = ringsize
-        self.time_table = time_table
+        self.ringsize_table = assumptions['ringsize']
+        self.time_table = assumptions['inter_time']
 
         # start the chain with coins wo inputs
         self.keys = Keys()
         self.keyspent = Spent()
-        print("Warming up the chain....")
-        for i in range(INITIAL_SIZE):
-            self.inception()
+        #for i in range(INITIAL_SIZE):
+         #   self.inception()
 
     def update_blockside(self):
         return np.random.choice(self.tx_block_table[:, 0], 1, 
@@ -143,13 +144,9 @@ class blockChain(object):
         
 if __name__ == "__main__":
 
-    ringsize = np.load("inputs/ringsize.npy")
-    blocksize = np.load("inputs/transaction_per_block.npy")
-    time_table = np.load("inputs/inter_time.npy")
-    
-    bkc = blockChain(blocksize, ringsize, time_table)
+    assumptions = np.load("../../data/blockchain_assumptions.npz")
+    bkc = blockChain(assumptions)
 
-    print("Starting simulations")
     while kid < 50000:
         bkc.add_transaction()
        
