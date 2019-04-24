@@ -5,11 +5,17 @@ import queue as Q
 import random
 import bisect
 
+from scipy.stats import gamma
+import warnings
+
+warnings.filterwarnings('error')
+
 TIME_TO_REGISTER = 1
 
 BLOCKSIZE = 10
 INITIAL_SIZE = 20000
 INFINITE_TIME = 10 ** 12
+EPS = 10 **(-12)
 
 blockid = 0
 kid = 0
@@ -60,27 +66,6 @@ class SpentBaseline(Spent):
         self.scale = distribution['scale']
         self.list_spent = [] # needs to be implemented as a binary tree?
         
-    """
-    def pick(self):
-        # gamma distribution
-        recent_index = bisect.bisect_left(self.list_spent, time - self.threshold_recent)
-        recent = (random.uniform(0, 1) < self.ratio)
-       
-        if recent is True:
-            a = random.randint(recent_index, len(self.list_spent) - 1)
-            
-        else:
-            a = random.randint(0, recent_index -1 )
-
-        index = self.list_spent[a]
-        picked = self.keyspent[index].pop()
-
-        if len(self.keyspent[index]) == 0:
-            self.keyspent.pop(index)
-            self.list_spent.pop(a)
-
-        return picked
-    """
     def pick(self):
         # gamma distribution
         a = max(int(time - np.exp(np.random.gamma(self.shape, self.scale) - 4.09)), 0)
@@ -110,15 +95,15 @@ class NaiveAttack(blockChain):
 
         super().__init__(assumptions)
         
-        self.schedule_attack = schedule_attack
-        self.next_attack = self.update_time_attack()
-        self.mixin_attacker = 0
-
         self.event_queue = Q.PriorityQueue()
 
         # start the chain with coins wo inputs
         self.keys = KeysBaseline(distributions['mixins'])
         self.keyspent = SpentBaseline(distributions['real'])
+
+        # gamma pdf
+        self.gamma_spent = gamma(distributions['real']['shape'], distributions['real']['scale'])
+        self.gamma_mixins = gamma(distributions['mixins']['shape'], distributions['mixins']['scale'])
 
         for i in range(INITIAL_SIZE):
             self.inception()
@@ -154,16 +139,13 @@ class NaiveAttack(blockChain):
             self.update_time()
 
     def create_transaction(self):
-        ringsize = self.update_ringsize()
-        ring = self.keys.pick_n(ringsize)
-
-        # count number of attacker keys
-        for key in ring:
-            if key.attacker is True:
-                self.mixin_attacker += 1
+        ringsize = 10
+        #self.update_ringsize()
+        ring = self.keys.pick_n(ringsize, time)
 
         coin = self.keyspent.pick() # real spent
         coin.spent = True
+        coin.age = time - coin.time
         ring.append(coin)
         
         tx = transaction(ring, time)
@@ -176,51 +158,18 @@ class NaiveAttack(blockChain):
         
         self.update_blockid()
 
-    def update_time_attack(self):
-        if self.schedule_attack is None:
-            return INFINITE_TIME
-        elif (len(self.schedule_attack) > 0):
-            return self.schedule_attack[-1][0]
-        else:
-            return INFINITE_TIME
-
-    def attack(self):
-        time_attack, n_attack, ringsize = self.schedule_attack.pop()
-
-        global kid
-        
-        # create n_attack transactions at time time_attack and force to the queue
-        for i in range(n_attack):
-            ring = self.keys.pick_n(ringsize)
-            coin = self.keyspent.pick() # real spent
-            coin.spent = True
-            ring.append(coin)
-        
-            tx = transaction(ring, time_attack)
-            tx.attacker = True
-            event = Event(time_attack, tx, "in")
-            self.event_queue.put(event)
-
-            # update chain
-            kid += 1
-
-            self.update_blockid()
-        
-        # update next attack schedule
-        self.next_attack = self.update_time_attack()
-        
     def manage_queue(self):
 
         self.create_transaction()
         while self.event_queue.empty() is False:
             
             event = self.event_queue.get()
-            if (event.activity == 'in') & (event.priority <= time) & (event.priority <= self.next_attack):
+            if (event.activity == 'in') & (event.priority <= time):
                 event.priority = event.priority +  TIME_TO_REGISTER
                 event.activity = 'out'
                 self.event_queue.put(event)
 
-            elif (event.activity == 'out') & (event.priority <= time) & (event.priority <= self.next_attack):
+            elif (event.activity == 'out') & (event.priority <= time):
                 tx = event.transaction
                 tx.time = event.priority
                 
@@ -230,28 +179,126 @@ class NaiveAttack(blockChain):
                 # add new transaction to spent
                 self.keyspent.insert(tx)
 
-            elif (event.priority <= self.next_attack):
+            else:
                 self.event_queue.put(event)
                 self.create_transaction()
 
-            else:
-                self.event_queue.put(event)
-                self.attack()
+    def naive_heuristic(self):
+
+        count_key = 0
+        count_correct = 0
+        # look at the list of key images and within 
+        for inputs in self.keys.keys:
+            newest_time = 0
+            ring = inputs.ring
+     
+            if len(ring) > 0:
+                for key in ring:
+                
+                    if key.time > newest_time:
+                        newest_time = key.time
+                        newest_key = key
+                    
+                if newest_key.spent:
+                    count_correct += 1
+            
+                count_key += 1
+
+        return count_key, count_correct
+
+    def map_pdf(self, tx, size, eps):
+        ps = (self.gamma_spent.pdf(np.log(tx.age * 60 + eps)) + eps)/size 
+        pm = (self.gamma_mixins.pdf(np.log(tx.age * 60 + eps)) + eps) * (1 - 1/size)
+
+        return ps / (ps + pm)
+
+
+    def map_heuristic(self):
+        """
+        Passive attacks assuming we know the shape of both distribution
+        """
+        count_key = 0
+        count_correct = 0
+       
+
+        # look at the list of key images and within 
+        for inputs in self.keys.keys:
+            ring = inputs.ring
+            random.shuffle(ring)
+            if len(ring) > 0:
+                guess = max(ring, key=lambda x: self.map_pdf(x, len(ring), EPS))
+                
+                if guess.spent:
+                    count_correct += 1
+                count_key += 1
+
+        return count_key, count_correct
 
 
 if __name__ == '__main__':
 
     assumptions = np.load("../../data/blockchain_assumptions.npz")
-    distributions = {'mixins': {'shape': 19.28, 'scale': 1/1.61},
-                     'real': {'shape': 19.28, 'scale': 1/1.61}
+    results_mean = np.zeros((10, 3))
+
+    # loop over shape of the real distribution
+    for i in range(10):
+        print(i)
+        coeff_shape = i / 10 
+        coeff_shape += 1
+        results_mean[i, 0] = coeff_shape
+
+        blockid = 0
+        kid = 0
+        time = 0        
+        
+        distributions = {'mixins': {'shape': 19.28, 'scale': 1/1.61},
+                     'real': {'shape': 19.28/coeff_shape, 'scale': 1/1.61}
                     }
 
-    bkc = NaiveAttack(assumptions, 
-                        #schedule_attack=[],
+        bkc = NaiveAttack(assumptions, 
                         distributions=distributions) 
-    while kid < 30000:
-        
-        bkc.manage_queue()
+    
+        while kid < 40000:
+            bkc.manage_queue()
+        print(time)
 
-    print(time)
+        count_key, count_correct = bkc.map_heuristic()
+        results_mean[i, 1] = count_correct / count_key
+
+        count_key, count_correct = bkc.naive_heuristic()
+        results_mean[i, 2] = count_correct / count_key
+
+    results_scale = np.zeros((10, 3))
+
+    # loop over scale of the real distribution
+    for i in range(10):
+        coeff_scale = i / 10 
+        coeff_scale += 1
+        results_scale[i, 0] = coeff_scale
+
+        blockid = 0
+        kid = 0
+        time = 0        
+        
+        distributions = {'mixins': {'shape': 19.28, 'scale': 1/1.61},
+                     'real': {'shape': 19.28, 'scale': 1/1.61 * coeff_scale}
+                    }
+
+        bkc = NaiveAttack(assumptions, 
+                        distributions=distributions) 
+    
+        while kid < 40000:
+            bkc.manage_queue()
+
+        count_key, count_correct = bkc.map_heuristic()
+        results_scale[i, 1] = count_correct / count_key
+
+        count_key, count_correct = bkc.naive_heuristic()
+        results_scale[i, 2] = count_correct / count_key
+
+    np.savez("../../results/passive_attacks_1", 
+                change_shape=results_mean,
+                change_scale=results_scale)
+
+    
             

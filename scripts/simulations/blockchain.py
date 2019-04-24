@@ -12,6 +12,7 @@ class transaction(object):
 
     def __init__(self, ring, time):
         self.time = time
+        
         self.ring = ring
         self.id = kid
         self.blockid = blockid
@@ -37,12 +38,14 @@ class Keys(object):
         # for now uniform draw
         return random.choice(self.keys) 
 
-    def pick_n(self, n):
+    def pick_n(self, n, time):
         # pick n keys
         count = 0
         picked = []
         while (count < n):
             x = self.pick()
+            x.spent = False
+            x.age = time - x.time
             #if x not in picked:
             picked.append(x)
             count += 1
