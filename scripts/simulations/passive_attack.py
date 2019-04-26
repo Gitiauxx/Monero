@@ -43,12 +43,27 @@ class KeysBaseline(Keys):
         
     def pick(self):
         # gamma distribution
-        a = max(int(time - np.exp(np.random.gamma(self.shape, self.scale) - 4.09)), 0)
+        draw = np.random.gamma(self.shape, self.scale)
+        a = max(int(time - np.exp(draw - 4.09)), 0)
         
         key_index = bisect.bisect_left(self.keys_time, a)
         key_index = min(key_index, len(self.keys) - 1)
         
-        return self.keys[key_index]
+        return self.keys[key_index], np.exp(draw) / 60
+
+    def pick_n(self, n, time):
+        # pick n keys
+        count = 0
+        picked = []
+        while (count < n):
+            x, age = self.pick()
+            x.spent = False
+            x.age = age
+            #time - x.time
+            #if x not in picked:
+            picked.append(x)
+            count += 1
+        return picked
 
     def insert(self, x):
         if x not in self.keys:
@@ -68,7 +83,8 @@ class SpentBaseline(Spent):
         
     def pick(self):
         # gamma distribution
-        a = max(int(time - np.exp(np.random.gamma(self.shape, self.scale) - 4.09)), 0)
+        draw = np.random.gamma(self.shape, self.scale)
+        a = max(int(time - np.exp(draw - 4.09)), 0)
         b = bisect.bisect_left(self.list_spent, a)
         b = min(b, len(self.list_spent) - 1)
         
@@ -79,7 +95,7 @@ class SpentBaseline(Spent):
             self.keyspent.pop(index)
             self.list_spent.pop(b)
 
-        return picked
+        return picked, np.exp(draw) / 60
 
     def insert(self, x):
         assert x not in self.keyspent
@@ -89,7 +105,7 @@ class SpentBaseline(Spent):
             self.keyspent[x.time] = [x]  
             self.list_spent.append(x.time)  
 
-class NaiveAttack(blockChain):
+class PassiveAttack(blockChain):
  
     def __init__(self, assumptions, schedule_attack=None, distributions=None):
 
@@ -143,9 +159,10 @@ class NaiveAttack(blockChain):
         #self.update_ringsize()
         ring = self.keys.pick_n(ringsize, time)
 
-        coin = self.keyspent.pick() # real spent
+        coin, age = self.keyspent.pick() # real spent
         coin.spent = True
-        coin.age = time - coin.time
+        coin.age = age
+        #time - coin.time
         ring.append(coin)
         
         tx = transaction(ring, time)
@@ -234,11 +251,146 @@ class NaiveAttack(blockChain):
 
         return count_key, count_correct
 
+    def ringsize_pdf(self):
+        ringsize_dict ={}
+        count_inputs = 0
+        
+        for input in self.keys.keys:
+            size = len(input.ring)
+
+            if size == 0:
+                continue
+
+            if size in ringsize_dict:
+                ringsize_dict[size] += 1
+            else:
+                ringsize_dict[size] = 1
+            
+            count_inputs += 1
+
+        for size, count in ringsize_dict.items():
+            ringsize_dict[size] = count / count_inputs
+        
+        return ringsize_dict
+
+    def age_pdf(self):
+
+        # create age distribution from observed inputs per hour
+        age_dict = {}
+        count_inputs = 0
+        age_mean = 0
+        age_range = np.linspace(0, 30, 100)
+
+        for input in self.keys.keys:
+            
+            if len(input.ring) == 0:
+                 continue
+            
+            for key in input.ring:
+                age = np.log(key.age * 60)
+                age_loc = bisect.bisect_left(age_range, age) - 1
+                age = age_range[age_loc]
+                age_mean += age
+                
+                if age in age_dict.keys():
+                    age_dict[age] += 1
+            
+                else:
+                    age_dict[age] = 1
+            
+                count_inputs += 1
+        
+        max_val = 0
+        amax = 0
+        for a, count in age_dict.items():
+            age_dict[a] = count / count_inputs
+            amax += a * age_dict[a]
+       
+        self.observed_age_distribution = age_dict
+
+    def gamma_hour(self):
+        age_mixins_dict = {}
+        age_range = np.linspace(0, 30, 100)
+        s0 = 0
+
+        for age in age_range:
+            age_mixins_dict[age] = self.gamma_mixins.cdf(age) - self.gamma_mixins.cdf(s0)
+            s0 = age
+        
+        self.age_mixins_distribution = age_mixins_dict
+
+    def map_hist(self, tx, size, real, mixin):
+
+        age_range = np.linspace(0, 30, 100)
+
+        age = np.log(tx.age * 60)
+        age_loc = bisect.bisect_left(age_range, age) - 1
+        age = age_range[age_loc]
+
+        ps = real[age] * 1 / size
+        pm = mixin[age] * (1 - 1 /size)
+
+        return ps / (pm + ps)
+
+
+    def estimated_map_heuristic(self):
+
+        """
+        Passive attacks without knowing the shape of real-spent distribution
+        """
+        count_key = 0
+        count_correct = 0
+
+        # compute averaged ring size
+        avg_mixins = 0
+        avg_real = 0
+        total_size = 0
+
+        ringsize_dict = self.ringsize_pdf()
+        for size, prob in ringsize_dict.items():
+            avg_mixins += prob * (size - 1) / size
+            avg_real += prob / size
+
+    
+        # observed spent distribution
+        self.age_pdf()
+        observed = self.observed_age_distribution
+        tot = 0
+        
+    
+        # mixins distribution
+        self.gamma_hour()
+        mixins = self.age_mixins_distribution
+        tot = 0
+        for _, values in mixins.items():
+            tot += values
+     
+        
+        # compute estimated real distriubtion
+        real = {}
+        for age in observed:
+            real[age] = (observed[age] - avg_mixins * mixins[age]) / avg_real
+
+        # estimate maximum likelihood 
+        for inputs in self.keys.keys:
+            ring = inputs.ring
+            random.shuffle(ring)
+            if len(ring) == 0:
+                continue
+
+            guess = max(ring, key=lambda x: self.map_hist(x, len(ring), real, mixins))
+                
+            if guess.spent:
+                count_correct += 1
+            count_key += 1
+
+        return count_key, count_correct
+
 
 if __name__ == '__main__':
 
-    assumptions = np.load("../../data/blockchain_assumptions.npz")
-    results_mean = np.zeros((10, 3))
+    assumptions = np.load("./inputs/blockchain_assumptions.npz")
+    results_mean = np.zeros((10, 4))
 
     # loop over shape of the real distribution
     for i in range(10):
@@ -255,48 +407,32 @@ if __name__ == '__main__':
                      'real': {'shape': 19.28/coeff_shape, 'scale': 1/1.61}
                     }
 
-        bkc = NaiveAttack(assumptions, 
+        bkc = PassiveAttack(assumptions, 
                         distributions=distributions) 
     
-        while kid < 40000:
+        while kid < 50000:
             bkc.manage_queue()
         print(time)
 
+        # map with known distribution
         count_key, count_correct = bkc.map_heuristic()
         results_mean[i, 1] = count_correct / count_key
+        print(count_correct / count_key)
 
+        # guess the newest
         count_key, count_correct = bkc.naive_heuristic()
+        results_mean[i, 3] = count_correct / count_key
+        print(count_correct / count_key)
+
+        # map with unknown real spent distribution
+        count_key, count_correct = bkc.estimated_map_heuristic()
         results_mean[i, 2] = count_correct / count_key
+        print(count_correct / count_key)
+
 
     results_scale = np.zeros((10, 3))
 
-    # loop over scale of the real distribution
-    for i in range(10):
-        coeff_scale = i / 10 
-        coeff_scale += 1
-        results_scale[i, 0] = coeff_scale
-
-        blockid = 0
-        kid = 0
-        time = 0        
-        
-        distributions = {'mixins': {'shape': 19.28, 'scale': 1/1.61},
-                     'real': {'shape': 19.28, 'scale': 1/1.61 * coeff_scale}
-                    }
-
-        bkc = NaiveAttack(assumptions, 
-                        distributions=distributions) 
-    
-        while kid < 40000:
-            bkc.manage_queue()
-
-        count_key, count_correct = bkc.map_heuristic()
-        results_scale[i, 1] = count_correct / count_key
-
-        count_key, count_correct = bkc.naive_heuristic()
-        results_scale[i, 2] = count_correct / count_key
-
-    np.savez("../../results/passive_attacks_1", 
+    np.savez("./results/passive_attacks_2", 
                 change_shape=results_mean,
                 change_scale=results_scale)
 

@@ -19,7 +19,7 @@ class transaction(object):
         self.size = len(ring)
         self.spent = False
         self.attacker = False
-        
+       
 
 class Keys(object):
 
