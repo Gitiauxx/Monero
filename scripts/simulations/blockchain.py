@@ -76,12 +76,18 @@ class Spent(object):
 
 class blockChain(object):
 
-    def __init__(self, assumptions):
+    def __init__(self, assumptions, ringsize=None):
  
         self.tx_block_table = assumptions['transaction_per_block']
         self.blocksize = self.update_blockside()
         self.blockfilled = 0
-        self.ringsize_table = assumptions['ringsize']
+        if ringsize is None:
+            self.ringsize_table = assumptions['ringsize'] # using a probability table
+        else:
+            self.ringsize = ringsize # using a fixed ring size
+
+        assert hasattr(self, "ringsize") | hasattr(self, "ringsize_table")
+
         self.time_table = assumptions['inter_time']
 
         # start the chain with coins wo inputs
@@ -95,8 +101,12 @@ class blockChain(object):
                                 p=self.tx_block_table[:, 1])[0]
     
     def update_ringsize(self):
-        return np.random.choice(self.ringsize_table[:, 0], 1, 
+        if hasattr(self, "ringsize_table"):
+            return np.random.choice(self.ringsize_table[:, 0], 1, 
                                 p=self.ringsize_table[:, 1])[0]
+        elif hasattr(self, "ringsize"):
+            return self.ringsize
+        
 
     def update_time(self):
         global time

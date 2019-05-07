@@ -5,7 +5,8 @@ import queue as Q
 import random
 import bisect
 
-from scipy.stats import gamma
+
+from scipy.stats import gamma, norm
 import warnings
 
 warnings.filterwarnings('error')
@@ -13,9 +14,9 @@ warnings.filterwarnings('error')
 TIME_TO_REGISTER = 1
 
 BLOCKSIZE = 10
-INITIAL_SIZE = 20000
+INITIAL_SIZE = 0
 INFINITE_TIME = 10 ** 12
-EPS = 10 **(-12)
+EPS = 0
 
 blockid = 0
 kid = 0
@@ -39,28 +40,24 @@ class KeysBaseline(Keys):
 
         self.shape = distribution['shape']
         self.scale = distribution['scale']
-        self.keys_time = list()
         
     def pick(self):
-        # gamma distribution
-        draw = np.random.gamma(self.shape, self.scale)
-        a = max(int(time - np.exp(draw - 4.09)), 0)
+        # gamma distribution -- the age is randomly drawn and added to the inputs
+        draw = np.random.gamma(self.shape, scale=self.scale)
+        age = np.exp(draw) / 60 # convert to minute
         
-        key_index = bisect.bisect_left(self.keys_time, a)
-        key_index = min(key_index, len(self.keys) - 1)
-        
-        return self.keys[key_index], np.exp(draw) / 60
+        tx = transaction([], time)
+        tx.age = age
+        return tx
 
     def pick_n(self, n, time):
         # pick n keys
         count = 0
         picked = []
         while (count < n):
-            x, age = self.pick()
+            x = self.pick()
             x.spent = False
-            x.age = age
-            #time - x.time
-            #if x not in picked:
+            
             picked.append(x)
             count += 1
         return picked
@@ -68,7 +65,6 @@ class KeysBaseline(Keys):
     def insert(self, x):
         if x not in self.keys:
             self.keys.append(x)
-            self.keys_time.append(x.time)
             return True
         else:
             return False
@@ -79,23 +75,25 @@ class SpentBaseline(Spent):
         super().__init__()
         self.shape = distribution['shape']
         self.scale = distribution['scale']
-        self.list_spent = [] # needs to be implemented as a binary tree?
         
     def pick(self):
         # gamma distribution
-        draw = np.random.gamma(self.shape, self.scale)
-        a = max(int(time - np.exp(draw - 4.09)), 0)
-        b = bisect.bisect_left(self.list_spent, a)
-        b = min(b, len(self.list_spent) - 1)
+        draw = np.random.gamma(self.shape, scale=self.scale)
+        age = np.exp(draw) / 60
         
-        index = int(self.list_spent[b])
-        picked = self.keyspent[index].pop()
+        #index = random.choice(list(self.keyspent.keys()))
+        #x = self.keyspent[index].pop()
+        #picked = copy.deepcopy(x)
+        #picked.age = age
 
-        if len(self.keyspent[index]) == 0:
-            self.keyspent.pop(index)
-            self.list_spent.pop(b)
+        picked= transaction([], time)
+        picked.age = age
 
-        return picked, np.exp(draw) / 60
+        #self.keyspent[index].pop(picked)
+        #if len(self.keyspent[index]) == 0:
+            #self.keyspent.pop(index)
+
+        return picked
 
     def insert(self, x):
         assert x not in self.keyspent
@@ -103,13 +101,31 @@ class SpentBaseline(Spent):
             self.keyspent[x.time].append(x)
         else:
             self.keyspent[x.time] = [x]  
-            self.list_spent.append(x.time)  
+
+class SpentNormal(SpentBaseline):
+
+    def __init__(self, distribution):
+        super().__init__()
+        self.shape = distribution['shape']
+        self.scale = distribution['scale']
+        
+    def pick(self):
+        # gamma distribution
+        draw = np.random.normal(self.shape, scale=self.scale)
+        age = np.exp(draw) / 60
+        
+        picked= transaction([], time)
+        picked.age = age
+
+        return picked
+
+            
 
 class PassiveAttack(blockChain):
  
-    def __init__(self, assumptions, schedule_attack=None, distributions=None):
+    def __init__(self, assumptions, ringsize= 10, distributions=None):
 
-        super().__init__(assumptions)
+        super().__init__(assumptions, ringsize=ringsize)
         
         self.event_queue = Q.PriorityQueue()
 
@@ -118,12 +134,11 @@ class PassiveAttack(blockChain):
         self.keyspent = SpentBaseline(distributions['real'])
 
         # gamma pdf
-        self.gamma_spent = gamma(distributions['real']['shape'], distributions['real']['scale'])
-        self.gamma_mixins = gamma(distributions['mixins']['shape'], distributions['mixins']['scale'])
+        self.gamma_spent = gamma(distributions['real']['shape'], scale=distributions['real']['scale'])
+        self.gamma_mixins = gamma(distributions['mixins']['shape'], scale=distributions['mixins']['scale'])
 
         for i in range(INITIAL_SIZE):
             self.inception()
-
 
     def inception(self):
         
@@ -155,14 +170,13 @@ class PassiveAttack(blockChain):
             self.update_time()
 
     def create_transaction(self):
-        ringsize = 10
-        #self.update_ringsize()
+        
+        ringsize = self.update_ringsize()
         ring = self.keys.pick_n(ringsize, time)
 
-        coin, age = self.keyspent.pick() # real spent
+        coin = self.keyspent.pick() # real spent
         coin.spent = True
-        coin.age = age
-        #time - coin.time
+        
         ring.append(coin)
         
         tx = transaction(ring, time)
@@ -204,16 +218,18 @@ class PassiveAttack(blockChain):
 
         count_key = 0
         count_correct = 0
+        
         # look at the list of key images and within 
         for inputs in self.keys.keys:
-            newest_time = 0
+            newest_age = INFINITE_TIME
             ring = inputs.ring
+            random.shuffle(ring)
      
             if len(ring) > 0:
                 for key in ring:
-                
-                    if key.time > newest_time:
-                        newest_time = key.time
+                    
+                    if key.age <= newest_age:
+                        newest_age = key.age
                         newest_key = key
                     
                 if newest_key.spent:
@@ -279,7 +295,7 @@ class PassiveAttack(blockChain):
         age_dict = {}
         count_inputs = 0
         age_mean = 0
-        age_range = np.linspace(0, 30, 100)
+        age_range = np.linspace(0, 20, 200)
 
         for input in self.keys.keys:
             
@@ -307,26 +323,36 @@ class PassiveAttack(blockChain):
             amax += a * age_dict[a]
        
         self.observed_age_distribution = age_dict
+        print("true avg {}".format(age_mean / count_inputs))
+        print("avg {}".format(amax))
 
     def gamma_hour(self):
         age_mixins_dict = {}
-        age_range = np.linspace(0, 30, 100)
+        age_range = np.linspace(0, 20, 200)
         s0 = 0
 
         for age in age_range:
+            
             age_mixins_dict[age] = self.gamma_mixins.cdf(age) - self.gamma_mixins.cdf(s0)
             s0 = age
+
+        avg = 0
+        count_tot = 0
+        for age, count in age_mixins_dict.items():
+            avg += count * age
+            count_tot += count
+
         
         self.age_mixins_distribution = age_mixins_dict
 
     def map_hist(self, tx, size, real, mixin):
 
-        age_range = np.linspace(0, 30, 100)
+        age_range = np.linspace(0, 20, 200)
 
         age = np.log(tx.age * 60)
         age_loc = bisect.bisect_left(age_range, age) - 1
         age = age_range[age_loc]
-
+       
         ps = real[age] * 1 / size
         pm = mixin[age] * (1 - 1 /size)
 
@@ -386,25 +412,67 @@ class PassiveAttack(blockChain):
 
         return count_key, count_correct
 
+class NormalDistribution(PassiveAttack):
+
+    def __init__(self, assumptions, ringsize= 10, distributions=None):
+
+        super().__init__(assumptions, ringsize=ringsize, distributions=distributions)
+        self.normal_spent = norm(distributions['real']['shape'], scale=distributions['real']['scale'])
+
 
 if __name__ == '__main__':
 
+    
     assumptions = np.load("./inputs/blockchain_assumptions.npz")
-    results_mean = np.zeros((10, 4))
+    results_scale = np.zeros((19, 4))
+
+    """
+
+    # loop over ringsize
+    i = 0
+    for chainsize in range(1, 11):
+        chainsize *= 10000
+        results_chainsize[i, 0] = chainsize
+
+        blockid = 0
+        kid = 0
+        time = 0        
+        
+
+        distributions = {'mixins': {'shape': 19.28, 'scale': 1/1.61},
+                     'real': {'shape': 19.28 / 1.1, 'scale': 1/1.61}
+                    }
+
+        bkc = PassiveAttack(assumptions, ringsize=10,
+                        distributions=distributions) 
+    
+        while kid < chainsize:
+            bkc.manage_queue()
+        print(time)
+        
+        count_key, count_correct = bkc.estimated_map_heuristic()
+        results_chainsize[i, 1] = count_correct / count_key
+        print(count_correct / count_key)
+
+        i += 1
+
+    """
+
 
     # loop over shape of the real distribution
-    for i in range(10):
-        print(i)
-        coeff_shape = i / 10 
+    i = 0
+    for coeff in np.linspace(-0.2, 0.2, 19):
+        
+        coeff_shape = coeff
         coeff_shape += 1
-        results_mean[i, 0] = coeff_shape
+        results_scale[i, 0] = coeff_shape
 
         blockid = 0
         kid = 0
         time = 0        
         
         distributions = {'mixins': {'shape': 19.28, 'scale': 1/1.61},
-                     'real': {'shape': 19.28/coeff_shape, 'scale': 1/1.61}
+                     'real': {'shape': 19.28 , 'scale': 1/(1.61 * coeff_shape)}
                     }
 
         bkc = PassiveAttack(assumptions, 
@@ -416,25 +484,25 @@ if __name__ == '__main__':
 
         # map with known distribution
         count_key, count_correct = bkc.map_heuristic()
-        results_mean[i, 1] = count_correct / count_key
+        results_scale[i, 1] = count_correct / count_key
         print(count_correct / count_key)
 
         # guess the newest
         count_key, count_correct = bkc.naive_heuristic()
-        results_mean[i, 3] = count_correct / count_key
+        results_scale[i, 3] = count_correct / count_key
         print(count_correct / count_key)
 
         # map with unknown real spent distribution
         count_key, count_correct = bkc.estimated_map_heuristic()
-        results_mean[i, 2] = count_correct / count_key
+        results_scale[i, 2] = count_correct / count_key
         print(count_correct / count_key)
 
+        i += 1
 
-    results_scale = np.zeros((10, 3))
+ 
 
-    np.savez("./results/passive_attacks_2", 
-                change_shape=results_mean,
-                change_scale=results_scale)
+    np.savez("./results/passive_attacks_scale", 
+                change_size=results_scale)
 
     
             
