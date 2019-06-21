@@ -41,8 +41,6 @@ class get_monerov(object):
         except:
             return pd.DataFrame(columns=['tx', 'key_image', 'ring_members'])
         
-        print(key_image_list)
-
         ring_list = soup.findAll('td', colspan="2")
         member_list = [rg.findAll('td') for rg in ring_list]
         keys_table = [mb[0::2][1:] for mb in member_list]
@@ -66,13 +64,16 @@ class get_monerov(object):
 if __name__ == '__main__':
 
     gmv = get_monerov(base_url)
-    b = gmv.get_block(1547470)
     
+    # inputs
+    block_start = 1800000
+    block_end = 1856035
+
     # get all transactions
     s = time.time()
     p = Pool(20)
     
-    transactions = p.map_async(gmv.get_block, range(1800000, 1856035), 40).get()
+    transactions = p.map_async(gmv.get_block, range(block_start, block_end), 40).get()
     p.terminate()
     
     p.join()
@@ -88,4 +89,4 @@ if __name__ == '__main__':
     print(time.time() - s)
     
     data = pd.concat(d_list, sort=True)
-    data.to_csv("../data/moneroc_data_mp1800_1856_2.csv")
+    data.to_csv("../data/moneroc_data_mp{}_{}_2.csv".format(str(block_start)[:4], str(block_end)[:4]))
