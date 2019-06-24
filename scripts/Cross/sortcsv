@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Parse arguments
+# echo $1
+FILE=$1
+SORTEDFILE="${FILE/.csv/_sorted.csv}"
+
+FILESIZE=$(stat -f%z $1)
+
+echo "Input file:$1, Size:$FILESIZE"
+echo "Output file:$SORTEDFILE"
+echo "Main key: $2(Column index start with 1.)"
+echo "Secondary key: $3"
+
+# head -n 1 $FILE > $SORTEDFILE && tail -n +2 $FILE | sort -t , -k 2 >> $SORTEDFILE
+
+echo "Sorting..."
+head -n 1 $FILE > $SORTEDFILE && tail -n +2 $FILE | sort -t , -k $2,$2 -k $3,$3 >> $SORTEDFILE
+echo "Done!"
